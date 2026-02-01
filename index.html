@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Путешествие мечты</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        .app-container {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .user-info {
+            margin-bottom: 20px;
+            color: #555;
+        }
+        
+        .progress-container {
+            margin: 30px 0;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .stats {
+            color: #666;
+            margin: 10px 0;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .destination {
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+        }
+        
+        .loading {
+            color: #999;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <h1>✈️ Путешествие мечты</h1>
+        
+        <div id="user-info" class="user-info">Загрузка...</div>
+        
+        <div class="destination">
+            🎯 Твоя цель: Париж
+        </div>
+        
+        <div class="progress-container">
+            <div class="stats">
+                <span id="distance">0</span> км из <span id="total">1000</span> км
+            </div>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+        </div>
+        
+        <button id="step-btn" class="btn">👣 Сделать шаг</button>
+        <button id="share-btn" class="btn">📤 Поделиться прогрессом</button>
+    </div>
+
+    <script>
+        // Telegram WebApp SDK
+        const tg = window.Telegram?.WebApp;
+        
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
+        
+        async function initApp() {
+            const userInfoEl = document.getElementById('user-info');
+            const stepBtn = document.getElementById('step-btn');
+            const shareBtn = document.getElementById('share-btn');
+            
+            // Проверяем, запущено ли приложение в Telegram
+            if (!tg) {
+                userInfoEl.textContent = '⚠️ Открой это приложение в Telegram!';
+                stepBtn.disabled = true;
+                shareBtn.disabled = true;
+                return;
+            }
+            
+            // Получаем данные пользователя
+            const initData = tg.initDataUnsafe;
+            const user = initData?.user;
+            
+            if (user) {
+                userInfoEl.innerHTML = `👤 Привет, <strong>${user.first_name || 'друг'}</strong>!`;
+            } else {
+                userInfoEl.textContent = '👤 Готов к путешествию!';
+            }
+            
+            // Настраиваем тему
+            tg.expand();
+            tg.ready();
+            
+            // Параметры игры
+            const TOTAL_DISTANCE = 1000; // км до Парижа
+            let distance = parseInt(localStorage.getItem('travel_distance')) || 0;
+            
+            // Обновляем UI
+            updateProgress(distance, TOTAL_DISTANCE);
+            
+            // Обработчик кнопки "Шаг"
+            stepBtn.addEventListener('click', () => {
+                distance += Math.floor(Math.random() * 10) + 1; // 1-10 км за шаг
+                if (distance > TOTAL_DISTANCE) distance = TOTAL_DISTANCE;
+                
+                localStorage.setItem('travel_distance', distance);
+                updateProgress(distance, TOTAL_DISTANCE);
+                
+                // Если достигли цели
+                if (distance >= TOTAL_DISTANCE) {
+                    tg.showPopup({
+                        title: '🎉 Поздравляем!',
+                        message: `Ты добрался до Парижа! Сделай скриншот и поделись с друзьями!`,
+                        buttons: [{ type: 'ok' }]
+                    });
+                }
+            });
+            
+            // Обработчик кнопки "Поделиться"
+            shareBtn.addEventListener('click', () => {
+                const percent = Math.round((distance / TOTAL_DISTANCE) * 100);
+                const message = `🚀 Я уже прошёл ${distance} км (${percent}%) пути до Парижа в @${tg.initDataUnsafe?.username || 'travel_bot'}! Присоединяйся!`;
+                
+                tg.shareText(message);
+            });
+        }
+        
+        function updateProgress(current, total) {
+            const percent = Math.min(100, Math.round((current / total) * 100));
+            
+            document.getElementById('distance').textContent = current;
+            document.getElementById('total').textContent = total;
+            document.getElementById('progress-fill').style.width = `${percent}%`;
+        }
+    </script>
+</body>
+</html>
