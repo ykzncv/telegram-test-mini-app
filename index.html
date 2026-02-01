@@ -29,7 +29,7 @@
             padding: 30px;
             width: 100%;
             max-width: 400px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 4px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
         
@@ -101,6 +101,18 @@
             color: #999;
             margin: 20px 0;
         }
+        
+        .debug {
+            background: #222;
+            color: #0f0;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            font-size: 12px;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -124,76 +136,121 @@
         
         <button id="step-btn" class="btn">👣 Сделать шаг</button>
         <button id="share-btn" class="btn">📤 Поделиться прогрессом</button>
+        
+        <div class="debug" id="debug"></div>
     </div>
 
     <script>
+        // Добавляем логгер для отладки
+        function log(message) {
+            const debugEl = document.getElementById('debug');
+            debugEl.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+            console.log(message);
+        }
+
         // Telegram WebApp SDK
         const tg = window.Telegram?.WebApp;
         
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
+            log("DOM загружен. Начинаем инициализацию...");
             initApp();
         });
         
         async function initApp() {
-            const userInfoEl = document.getElementById('user-info');
-            const stepBtn = document.getElementById('step-btn');
-            const shareBtn = document.getElementById('share-btn');
-            
-            // Проверяем, запущено ли приложение в Telegram
-            if (!tg) {
-                userInfoEl.textContent = '⚠️ Открой это приложение в Telegram!';
-                stepBtn.disabled = true;
-                shareBtn.disabled = true;
-                return;
-            }
-            
-            // Получаем данные пользователя
-            const initData = tg.initDataUnsafe;
-            const user = initData?.user;
-            
-            if (user) {
-                userInfoEl.innerHTML = `👤 Привет, <strong>${user.first_name || 'друг'}</strong>!`;
-            } else {
-                userInfoEl.textContent = '👤 Готов к путешествию!';
-            }
-            
-            // Настраиваем тему
-            tg.expand();
-            tg.ready();
-            
-            // Параметры игры
-            const TOTAL_DISTANCE = 1000; // км до Парижа
-            let distance = parseInt(localStorage.getItem('travel_distance')) || 0;
-            
-            // Обновляем UI
-            updateProgress(distance, TOTAL_DISTANCE);
-            
-            // Обработчик кнопки "Шаг"
-            stepBtn.addEventListener('click', () => {
-                distance += Math.floor(Math.random() * 10) + 1; // 1-10 км за шаг
-                if (distance > TOTAL_DISTANCE) distance = TOTAL_DISTANCE;
+            try {
+                log("Пытаемся инициализировать приложение...");
                 
-                localStorage.setItem('travel_distance', distance);
+                const userInfoEl = document.getElementById('user-info');
+                const stepBtn = document.getElementById('step-btn');
+                const shareBtn = document.getElementById('share-btn');
+                
+                // Проверяем, запущено ли приложение в Telegram
+                if (!tg) {
+                    log("⚠️ Не обнаружен Telegram WebApp SDK!");
+                    userInfoEl.textContent = '⚠️ Открой это приложение в Telegram!';
+                    stepBtn.disabled = true;
+                    shareBtn.disabled = true;
+                    return;
+                }
+                
+                log("Telegram WebApp SDK найден! Продолжаем...");
+                
+                // Получаем данные пользователя
+                const initData = tg.initDataUnsafe;
+                log(`Получены данные: ${JSON.stringify(initData)}`);
+                
+                const user = initData?.user;
+                if (user) {
+                    userInfoEl.innerHTML = `👤 Привет, <strong>${user.first_name || 'друг'}</strong>!`;
+                } else {
+                    userInfoEl.textContent = '👤 Готов к путешествию!';
+                }
+                
+                // Настраиваем тему
+                try {
+                    tg.expand();
+                    log("Расширили интерфейс до полного экрана");
+                } catch (e) {
+                    log(`Ошибка при расширении интерфейса: ${e.message}`);
+                }
+                
+                try {
+                    tg.ready();
+                    log("Telegram WebApp готов к работе");
+                } catch (e) {
+                    log(`Ошибка при вызове ready(): ${e.message}`);
+                }
+                
+                // Параметры игры
+                const TOTAL_DISTANCE = 1000; // км до Парижа
+                let distance = parseInt(localStorage.getItem('travel_distance')) || 0;
+                log(`Текущее расстояние: ${distance} км`);
+                
+                // Обновляем UI
                 updateProgress(distance, TOTAL_DISTANCE);
                 
-                // Если достигли цели
-                if (distance >= TOTAL_DISTANCE) {
-                    tg.showPopup({
-                        title: '🎉 Поздравляем!',
-                        message: `Ты добрался до Парижа! Сделай скриншот и поделись с друзьями!`,
-                        buttons: [{ type: 'ok' }]
-                    });
-                }
-            });
-            
-            // Обработчик кнопки "Поделиться"
-            shareBtn.addEventListener('click', () => {
-                const percent = Math.round((distance / TOTAL_DISTANCE) * 100);
-                const message = `🚀 Я уже прошёл ${distance} км (${percent}%) пути до Парижа в @${tg.initDataUnsafe?.username || 'travel_bot'}! Присоединяйся!`;
+                // Обработчик кнопки "Шаг"
+                stepBtn.addEventListener('click', () => {
+                    log("Кнопка 'Сделать шаг' нажата");
+                    distance += Math.floor(Math.random() * 10) + 1; // 1-10 км за шаг
+                    if (distance > TOTAL_DISTANCE) distance = TOTAL_DISTANCE;
+                    
+                    localStorage.setItem('travel_distance', distance);
+                    updateProgress(distance, TOTAL_DISTANCE);
+                    log(`Новое расстояние: ${distance} км`);
+                    
+                    // Если достигли цели
+                    if (distance >= TOTAL_DISTANCE) {
+                        log("Цель достигнута! Показываем уведомление");
+                        tg.showPopup({
+                            title: '🎉 Поздравляем!',
+                            message: `Ты добрался до Парижа! Сделай скриншот и поделись с друзьями!`,
+                            buttons: [{ type: 'ok' }]
+                        });
+                    }
+                });
                 
-                tg.shareText(message);
-            });
+                // Обработчик кнопки "Поделиться"
+                shareBtn.addEventListener('click', () => {
+                    log("Кнопка 'Поделиться' нажата");
+                    const percent = Math.round((distance / TOTAL_DISTANCE) * 100);
+                    const message = `🚀 Я уже прошёл ${distance} км (${percent}%) пути до Парижа в @${tg.initDataUnsafe?.username || 'travel_bot'}! Присоединяйся!`;
+                    
+                    try {
+                        tg.shareText(message);
+                        log("Попытка поделиться текстом успешна");
+                    } catch (e) {
+                        log(`Ошибка при шеринге: ${e.message}`);
+                    }
+                });
+                
+                log("Инициализация завершена успешно!");
+                
+            } catch (error) {
+                log(`КРИТИЧЕСКАЯ ОШИБКА: ${error.message}`);
+                console.error(error);
+            }
         }
         
         function updateProgress(current, total) {
